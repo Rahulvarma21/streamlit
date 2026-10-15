@@ -278,6 +278,22 @@ def test_help_tooltip_works(app: Page):
     expect_help_tooltip(app, markdown_with_help, "This is a help tooltip!")
 
 
+def test_markdown_heading_help_uses_heading_action_elements(app: Page):
+    """Markdown headings render element help with the shared heading actions."""
+    container = get_element_by_key(app, "markdown_heading_help")
+    container.scroll_into_view_if_needed()
+
+    markdown_heading = container.get_by_test_id("stMarkdown").get_by_role(
+        "heading", name="Performance"
+    )
+    expect(markdown_heading).to_be_visible()
+
+    actions = markdown_heading.get_by_test_id("stHeaderActionElements")
+    expect(actions).to_be_visible()
+    expect(actions.get_by_role("link", name="Link to heading")).to_be_visible()
+    expect_help_tooltip(app, markdown_heading, "Some help")
+
+
 def test_latex_elements(themed_app: Page, assert_snapshot: ImageCompareFunction):
     """Test that LaTeX elements are rendered correctly.
 

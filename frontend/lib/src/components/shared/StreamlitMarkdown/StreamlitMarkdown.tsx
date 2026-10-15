@@ -193,6 +193,11 @@ export interface Props {
   helpText?: string
 
   /**
+   * Optional element-level help for a Markdown source that contains one heading.
+   */
+  headingHelp?: string
+
+  /**
    * Truncate text with ellipsis when it overflows the container.
    * Useful for single-line text that should not wrap, such as metric labels.
    */
@@ -518,6 +523,7 @@ type HeadingProps = JSX.IntrinsicElements["h1"] &
   ReactMarkdownProps & {
     level: number
     "data-anchor"?: string
+    "data-streamlit-heading-help"?: string
     node: Element
   }
 
@@ -537,6 +543,10 @@ StreamingContext.displayName = "StreamingContext"
 const HideAnchorsContext = createContext<boolean>(false)
 HideAnchorsContext.displayName = "HideAnchorsContext"
 
+/** Element-level help rendered with a single Markdown heading. */
+const HeadingHelpContext = createContext<string | undefined>(undefined)
+HeadingHelpContext.displayName = "HeadingHelpContext"
+
 /**
  * True when markdown is truncated to one line. Fenced code must stay inline
  * so it cannot grow into a syntax highlighter or mermaid diagram. Widget
@@ -548,12 +558,17 @@ TruncateContext.displayName = "TruncateContext"
 const CustomHeading: FC<HeadingProps> = ({ node, children, ...rest }) => {
   const anchor = rest["data-anchor"]
   const hideAnchor = useContext(HideAnchorsContext)
+  const headingHelp = useContext(HeadingHelpContext)
+  const hasElementHelp = Boolean(rest["data-streamlit-heading-help"])
+  const { ["data-streamlit-heading-help"]: _elementHelp, ...tagProps } = rest
+
   return (
     <HeadingWithActionElements
       tag={node.tagName}
       anchor={anchor}
       hideAnchor={hideAnchor}
-      tagProps={rest}
+      help={hasElementHelp ? headingHelp : undefined}
+      tagProps={tagProps}
     >
       {children}
     </HeadingWithActionElements>
@@ -588,6 +603,8 @@ interface RenderedMarkdownProps {
    * When present, :help[] markers in the source will use this text.
    */
   helpText?: string
+
+  headingHelp?: string
 
   /**
    * Enables unterminated markdown completion (via remend) during streaming.
@@ -812,6 +829,42 @@ function createRemarkHelpIcon() {
         data.hProperties = data.hProperties || {}
         // Pass the children through so CustomHelpIcon can extract the content
         return
+      }
+    })
+
+    return tree
+  }
+}
+
+/**
+ * Routes the generated element-help directive through heading actions when it
+ * is the only non-content node in a single-heading Markdown document.
+ */
+function createRemarkElementHelp() {
+  return () => (tree: MdastRoot) => {
+    const [onlyNode] = tree.children
+
+    if (tree.children.length === 1 && onlyNode?.type === "heading") {
+      const lastChild = onlyNode.children.at(-1)
+      if (
+        lastChild?.type === "textDirective" &&
+        lastChild.name === "streamlit-element-help"
+      ) {
+        onlyNode.children.pop()
+        const data = onlyNode.data || (onlyNode.data = {})
+        data.hProperties = data.hProperties || {}
+        data.hProperties["data-streamlit-heading-help"] = "true"
+        return tree
+      }
+    }
+
+    // Preserve the existing inline help behavior for every other Markdown
+    // shape, including multiple headings and heading-plus-content documents.
+    visit(tree, "textDirective", node => {
+      if (node.name === "streamlit-element-help") {
+        const data = node.data || (node.data = {})
+        data.hName = "streamlit-help-icon"
+        data.hProperties = data.hProperties || {}
       }
     })
 
@@ -1251,6 +1304,7 @@ export const RenderedMarkdown = memo(function RenderedMarkdown({
   isLabel,
   disableLinks,
   helpText,
+  headingHelp,
   unterminatedParsing,
   hideAnchors,
   truncate,
@@ -1314,6 +1368,7 @@ export const RenderedMarkdown = memo(function RenderedMarkdown({
   const remarkPlugins = useMemo<PluggableList>(() => {
     const plugins: PluggableList = [
       ...BASE_REMARK_PLUGINS,
+      createRemarkElementHelp(),
       createRemarkColoringAndSmall(theme, colorMapping),
       createRemarkMaterialIcons(theme),
     ]
@@ -1433,17 +1488,19 @@ export const RenderedMarkdown = memo(function RenderedMarkdown({
   return (
     <StreamingContext.Provider value={Boolean(unterminatedParsing)}>
       <HelpTextContext.Provider value={helpText}>
-        <HideAnchorsContext.Provider value={Boolean(hideAnchors)}>
-          <ErrorBoundary>
-            {truncate ? (
-              <TruncateContext.Provider value={true}>
-                {markdown}
-              </TruncateContext.Provider>
-            ) : (
-              markdown
-            )}
-          </ErrorBoundary>
-        </HideAnchorsContext.Provider>
+        <HeadingHelpContext.Provider value={headingHelp}>
+          <HideAnchorsContext.Provider value={Boolean(hideAnchors)}>
+            <ErrorBoundary>
+              {truncate ? (
+                <TruncateContext.Provider value={true}>
+                  {markdown}
+                </TruncateContext.Provider>
+              ) : (
+                markdown
+              )}
+            </ErrorBoundary>
+          </HideAnchorsContext.Provider>
+        </HeadingHelpContext.Provider>
       </HelpTextContext.Provider>
     </StreamingContext.Provider>
   )
@@ -1465,6 +1522,7 @@ const StreamlitMarkdown: FC<Props> = ({
   inheritFont,
   inheritLineHeight,
   helpText,
+  headingHelp,
   truncate,
   unterminatedParsing,
   hideAnchors,
@@ -1491,6 +1549,7 @@ const StreamlitMarkdown: FC<Props> = ({
         isLabel={isLabel}
         disableLinks={disableLinks}
         helpText={helpText}
+        headingHelp={headingHelp}
         unterminatedParsing={unterminatedParsing}
         hideAnchors={hideAnchors}
         truncate={truncate}
