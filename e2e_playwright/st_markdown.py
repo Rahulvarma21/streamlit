@@ -653,3 +653,7 @@ with st.container(key="wrap_false_block_markdown", width=200):
 
 with st.container(key="wrap_false_markdown_help", width=200):
     st.markdown(_WRAP_TEXT, wrap=False, help="wrap help text")
+
+with st.container(key="markdown_heading_help"):
+    st.title("Performance", help="Some help")
+    st.markdown("# Performance", help="Some help")

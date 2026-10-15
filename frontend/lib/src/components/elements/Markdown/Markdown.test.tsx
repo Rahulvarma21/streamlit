@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { screen, waitFor } from "@testing-library/react"
+import { screen, waitFor, within } from "@testing-library/react"
 import { userEvent } from "@testing-library/user-event"
 
 import {
@@ -90,6 +90,51 @@ describe("Markdown headings with anchors", () => {
 })
 
 describe("Markdown element with help", () => {
+  it("renders single-heading help in the shared heading action area", async () => {
+    const user = userEvent.setup()
+    render(
+      <Markdown {...getProps({ body: "# Performance", help: "Some help" })} />
+    )
+
+    const heading = screen.getByRole("heading", { name: "Performance" })
+    const actions = within(heading).getByTestId("stHeaderActionElements")
+    const helpTrigger = within(actions).getByTestId("stTooltipHoverTarget")
+
+    expect(heading).toHaveAttribute("aria-labelledby")
+    expect(
+      within(actions).getByRole("link", { name: "Link to heading" })
+    ).toBeInTheDocument()
+
+    await user.hover(helpTrigger)
+    expect(await screen.findByText("Some help")).toBeVisible()
+  })
+
+  it("renders inline-formatted single-heading help in the shared action area", () => {
+    render(
+      <Markdown
+        {...getProps({ body: "# **Performance**", help: "Some help" })}
+      />
+    )
+
+    const heading = screen.getByRole("heading", { name: "Performance" })
+    expect(
+      within(heading).getByTestId("stHeaderActionElements")
+    ).toContainElement(within(heading).getByTestId("stTooltipHoverTarget"))
+  })
+
+  it("keeps element help inline when Markdown has multiple headings", () => {
+    render(
+      <Markdown
+        {...getProps({ body: "# First\n\n# Second", help: "Some help" })}
+      />
+    )
+
+    const helpTrigger = screen.getByTestId("stTooltipHoverTarget")
+    expect(
+      helpTrigger.closest('[data-testid="stHeaderActionElements"]')
+    ).toBeNull()
+  })
+
   it("renders markdown with help tooltip as expected", async () => {
     const user = userEvent.setup()
     const props = getProps({ help: "help text" })

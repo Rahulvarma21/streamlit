@@ -64,10 +64,13 @@ function Markdown({ element }: Readonly<MarkdownProps>): ReactElement {
   const { titleRef, labelTextRef } = useLabelTitleTooltip(truncate, body)
 
   // Put help in the markdown source only when it can sit inline without being
-  // clipped by truncation. Otherwise render the help icon as a sibling.
+  // clipped by truncation. The generated directive is promoted into the shared
+  // heading action area when the parsed document is exactly one heading.
   const shouldInlineHelpDirective =
     Boolean(help) && !truncate && !isSingleBadgeOnly && !isLatex && !allowHtml
-  const source = shouldInlineHelpDirective ? `${body} :help[]` : body
+  const source = shouldInlineHelpDirective
+    ? `${body} :streamlit-element-help[]`
+    : body
 
   const streamlitMarkdown = (
     <StreamlitMarkdown
@@ -75,6 +78,7 @@ function Markdown({ element }: Readonly<MarkdownProps>): ReactElement {
       source={source}
       allowHTML={allowHtml}
       helpText={shouldInlineHelpDirective ? help : undefined}
+      headingHelp={shouldInlineHelpDirective ? help : undefined}
       unterminatedParsing={unterminatedParsing}
       hideAnchors={hideAnchors}
       // Label mode keeps inline-only markdown so the text can ellipsize on

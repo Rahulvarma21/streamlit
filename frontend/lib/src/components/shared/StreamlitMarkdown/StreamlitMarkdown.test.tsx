@@ -17,6 +17,7 @@
 import type { ReactElement } from "react"
 
 import { cleanup, screen, within } from "@testing-library/react"
+import { userEvent } from "@testing-library/user-event"
 import { transparentize } from "color2k"
 import type { Element } from "hast"
 import ReactMarkdown from "react-markdown"
@@ -506,6 +507,19 @@ describe("StreamlitMarkdown", () => {
       ["gray", bgColors.graybg],
       ["grey", bgColors.graybg],
     ])
+  })
+
+  it("keeps manual help directives inline", async () => {
+    const user = userEvent.setup()
+    render(
+      <StreamlitMarkdown
+        source="Manual :help[manual text]"
+        allowHTML={false}
+      />
+    )
+
+    await user.hover(screen.getByTestId("stTooltipHoverTarget"))
+    expect(await screen.findByText("manual text")).toBeVisible()
   })
 
   it("renders header anchors when isInSidebar is false", () => {
